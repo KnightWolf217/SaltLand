@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Calibri', sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #f0f0f0;
+      /* Light grey background color for the page */
+    }
+
+    canvas {
+      border: 1px solid #000;
+      background-color: #404040;
+      /* Dark grey background color for the canvas */
+      cursor: none;
+      /* Hide the system cursor when inside the canvas */
+    }
+
+    #score {
+      font-size: 18px;
+      font-weight: bold;
+      /* Make the score label bold */
+      margin-top: 10px;
+      color: #000000;
+      /* Text color for the score (black) */
+    }
+
+    #missed {
+      font-size: 18px;
+      font-weight: bold;
+      /* Make the score label bold */
+      margin-top: 10px;
+      color: darkred;
+      /* Text color for the score (black) */
+    }
+
+    #dynamicText {
+      font-size: 24px;
+      margin-top: 20px;
+      text-align: center;
+      color: #000000;
+      font-style: italic
+    }
+  </style>
+  <title>NamakDaal.com</title>
+</head>
+
+<body>
+  <h1 style="text-align: center; margin-top: 20px;">Sonal's Namak Challenge</h1>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="score">Namak Level: 0</div>
+  <div id="missed">Namak Barbaad: 0</div>
+  <div id="dynamicText">"Raja, Namak daal"</div>
+  <!-- <audio id="audio1" src="1.mp3" type="audio/mp3"></audio>
+  <audio id="audio2" src="2.mp3" type="audio/mp3"></audio>
+  <audio id="audio3" src="3.mp3" type="audio/mp3"></audio>
+  <audio id="audio4" src="4.mp3" type="audio/mp3"></audio> -->
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Moving rectangle (bowl) properties
+    const bowl = {
+      x: canvas.width / 2 - 50,
+      y: canvas.height - 40,
+      width: 100,
+      height: 20,
+      color: "#FFA500",
+      speed: 2,
+      direction: 1
+    };
+
+    // Cursor properties (salt sprinkler)
+    const cursor = {
+      radius: 10,
+      color: "#FFFFFF", // Set the cursor color to white
+      x: 0,
+      y: 0,
+      speedThreshold: 42 // Adjusted the speed threshold to 42
+    };
+
+    // Salt properties
+    const salt = {
+      radius: 3, // Reduced the size of salt particles
+      color: "#FFFFFF",
+      particles: [] // Array to store salt particles
+    };
+
+    // Score properties
+    let score = 0;
+    const scoreElement = document.getElementById("score");
+
+    // Update cursor position on mouse move
+    canvas.addEventListener('mousemove', (event) => {
+      const rect = canvas.getBoundingClientRect();
+      cursor.x = event.clientX - rect.left;
+      cursor.y = event.clientY - rect.top;
+
+      // Check cursor speed and drop salt if shaken up and down
+      const verticalSpeed = Math.abs(event.movementY);
+      const horizontalSpeed = Math.abs(event.movementX);
+
+      if (verticalSpeed > cursor.speedThreshold && verticalSpeed > horizontalSpeed) {
+        // Drop salt particle at the cursor position
+        dropSalt(cursor.x, cursor.y);
+      }
+    });
+
+    function dropSalt(x, y) {
+      salt.particles.push({ x, y, velocity: 1 }); // Initial velocity set to 1 (you can adjust this)
+    }
+
+    function updateScore() {
+      for (let i = salt.particles.length - 1; i >= 0; i--) {
+        const particle = salt.particles[i];
+
+        // Check if the salt particle is within the bounds of the bowl
+        if (
+          particle.x >= bowl.x &&
+          particle.x <= bowl.x + bowl.width &&
+          particle.y >= bowl.y &&
+          particle.y <= bowl.y + bowl.height
+        ) {
+          salt.particles.splice(i, 1); // Remove the collided particle
+          score++;
+          scoreElement.textContent = `Namak Level: ${score}`;
+          break; // Break out of the loop since only one collision is needed per frame
+        }
+      }
+    }
+
+    function drawBowl() {
+      ctx.beginPath();
+      ctx.moveTo(bowl.x, bowl.y);
+      ctx.quadraticCurveTo(bowl.x + bowl.width / 2, bowl.y + 20, bowl.x + bowl.width, bowl.y);
+      ctx.fillStyle = bowl.color;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawCursor() {
+      ctx.beginPath();
+      ctx.arc(cursor.x, cursor.y, cursor.radius, Math.PI, 0, false); // Draw a semi-circle
+      ctx.fillStyle = cursor.color;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawSalt() {
+      ctx.fillStyle = salt.color;
+
+      for (const particle of salt.particles) {
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, salt.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+
+        // Update particle position based on velocity (move downward)
+        particle.y += particle.velocity;
+
+        // Optional: You can add a condition to remove particles when they go off-screen
+        // if (particle.y > canvas.height) {
+        //   salt.particles.splice(salt.particles.indexOf(particle), 1);
+        // }
+      }
+    }
+
+    function moveBowl() {
+      bowl.x += bowl.speed * bowl.direction;
+
+      if (bowl.x <= 0 || bowl.x + bowl.width >= canvas.width) {
+        bowl.direction *= -1;
+      }
+    }
+
+    // New variable for missed salt particles
+    let missedSalt = 0;
+    const missedSaltElement = document.getElementById("missed");
+
+    function updateMissedScore() {
+      for (let i = salt.particles.length - 1; i >= 0; i--) {
+        const particle = salt.particles[i];
+
+        // Check if the salt particle has fallen below the canvas
+        if (particle.y > canvas.height) {
+          salt.particles.splice(i, 1); // Remove the particle
+          missedSalt++;
+          missedSaltElement.textContent = `Namak Barbaad: ${missedSalt}`;
+        }
+      }
+    }
+
+    // New variable for dynamic text
+    const dynamicTextElement = document.getElementById("dynamicText");
+
+    function updateDynamicText() {
+      const currentScore = score // Consider both successful and missed salt for dynamic text
+
+      if (currentScore > 5 && currentScore <= 12) {
+        // console.log("well")
+        dynamicTextElement.textContent = '"Aur daal"';
+        // playAudio('2.mp3');
+      } else if (currentScore > 12 && currentScore <= 20) {
+        // console.log("well")
+        dynamicTextElement.textContent = '"Daal daal aur daal"';
+        // playAudio('3.mp3');
+      } else if (currentScore > 20 && currentScore <= 25) {
+        // console.log("well")
+        dynamicTextElement.textContent = '"Bas thoda sa aur daal de"';
+        // playAudio('4.mp3');
+      }
+    }
+
+    function gameOver() {
+      // Stop the game loop
+      cancelAnimationFrame(animationFrame);
+
+      // Darken and blur the background
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.width = "100%";
+      overlay.style.height = "100%";
+      overlay.style.background = "rgba(0, 0, 0, 0.7)"; // Adjust the opacity as needed
+      overlay.style.filter = "blur(5px)"; // Adjust the blur amount as needed
+      document.body.appendChild(overlay);
+
+      // Display the game-over pop-up
+      const popup = document.createElement("div");
+      popup.style.position = "fixed";
+      popup.style.top = "50%";
+      popup.style.left = "50%";
+      popup.style.transform = "translate(-50%, -50%)";
+      popup.style.padding = "20px";
+      popup.style.background = "#fff";
+      popup.style.borderRadius = "10px";
+      popup.style.textAlign = "center";
+      popup.innerHTML = `
+      <h2 style="font-style:italic">"Bas theek hai. Ab sim pe 15 minute chhod de"</h2>
+      <div id="missed">Namak Barbaad: ${missedSalt}</div>
+      <br><br>
+      <button onclick="resetGame()">Play Again</button>
+    `;
+      document.body.appendChild(popup);
+    }
+
+    function resetGame() {
+      // Remove the overlay and pop-up
+      document.body.removeChild(document.querySelector("div:last-of-type"));
+      document.body.removeChild(document.querySelector("div:last-of-type"));
+
+      // Reset game state
+      score = 0;
+      missedSalt = 0;
+      scoreElement.textContent = `Namak Level: ${score}`;
+      missedSaltElement.textContent = `Namak Barbaad: ${missedSalt}`;
+
+      // Start the game loop again
+      draw();
+    }
+
+    let animationFrame;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawSalt();
+      drawBowl();
+      drawCursor();
+
+      moveBowl();
+      updateScore();
+      updateMissedScore();
+      updateDynamicText();
+
+      // Check for game over condition
+      if (score >= 25) {
+        gameOver();
+        return;
+      }
+
+      animationFrame = requestAnimationFrame(draw);
+    }
+
+    draw(); // Start the game loop
+
+  </script>
+</body>
+
+</html>
